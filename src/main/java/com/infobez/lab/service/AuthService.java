@@ -5,14 +5,17 @@ import com.infobez.lab.models.User;
 import com.infobez.lab.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+import static org.springframework.security.core.context.SecurityContextHolder.createEmptyContext;
 
 @Service
 public class AuthService {
@@ -20,17 +23,23 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final VerificationService verificationService;
+    private final EmailService emailService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       AuthenticationManager authenticationManager) {
+                       AuthenticationManager authenticationManager,
+                       VerificationService verificationService,
+                       EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
+        this.verificationService = verificationService;
+        this.emailService = emailService;
     }
 
     /**
-     * Регистрација на нов корисник
+     * ФАЗ 1: Регистрација на нов корисник (се испраќа верификациски код)
      */
     public User registerUser(RegisterRequest request) {
         // Провери дали username веќе постои
@@ -48,45 +57,151 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setEnabled(true);
+        user.setEnabled(false); // Не е овозможен се додека не се верификува
+        user.setTwoFactorEnabled(true);
 
-        return userRepository.save(user);
+        // Генерирај верификациски код
+        String verificationCode = verificationService.generateVerificationCode();
+        user.setVerificationCode(verificationCode);
+        user.setVerificationCodeExpiry(verificationService.generateExpiryTime(10)); // 10 минути
+
+        User savedUser = userRepository.save(user);
+
+        // Испрати верификациски код на email
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode);
+
+        return savedUser;
     }
 
     /**
-     * Најава на корисник со Spring Security AuthenticationManager
-     * Креира сесија и ја зачувува во HttpSession
+     * ФАЗ 2: Верификација на email со код
      */
-    public String loginUser(String username, String password, HttpSession session) {
-        try {
-            // Креирај authentication token
-            UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(username, password);
+    public void verifyEmail(String username, String code) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Корисникот не постои!"));
 
-            // Автентикација преку AuthenticationManager
-            // Ова автоматски го повикува CustomUserDetailsService.loadUserByUsername()
-            // и ја проверува лозинката
-            Authentication authentication = authenticationManager.authenticate(authToken);
+        // Провери дали кодот е истечен
+        if (verificationService.isCodeExpired(user.getVerificationCodeExpiry())) {
+            throw new RuntimeException("Верификацискиот код е истечен!");
+        }
 
-            // Постави го authentication во Security Context
-            SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
-            securityContext.setAuthentication(authentication);
-            SecurityContextHolder.setContext(securityContext);
+        // Провери дали кодот е точен
+        if (!code.equals(user.getVerificationCode())) {
+            throw new RuntimeException("Погрешен верификациски код!");
+        }
 
-            // Зачувај го Security Context во HTTP сесијата
-            session.setAttribute(
-                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                    securityContext
-            );
+        // Овозможи го корисникот
+        user.setEnabled(true);
+        user.setVerificationCode(null);
+        user.setVerificationCodeExpiry(null);
+        userRepository.save(user);
 
-            // Врати го session ID
-            return session.getId();
+        // Испрати welcome email
+        emailService.sendWelcomeEmail(user.getEmail(), user.getUsername());
+    }
 
-        } catch (BadCredentialsException e) {
-            throw new RuntimeException("Погрешно корисничко име или лозинка!");
+    /**
+     * Повторно испраќање на верификациски код
+     */
+    public void resendVerificationCode(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Корисникот не постои!"));
+
+        if (user.isEnabled()) {
+            throw new RuntimeException("Корисникот веќе е верификуван!");
+        }
+
+        // Генерирај нов код
+        String verificationCode = verificationService.generateVerificationCode();
+        user.setVerificationCode(verificationCode);
+        user.setVerificationCodeExpiry(verificationService.generateExpiryTime(10));
+        userRepository.save(user);
+
+        // Испрати нов код
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode);
+    }
+
+    /**
+     * ФАЗ 1 НАЈАВА: Првична автентикација (username + password)
+     * Се испраќа 2FA код на email
+     */
+    public void initiateLogin(String username, String password) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Корисникот не постои!"));
+
+        // Провери дали корисникот е верификуван
+        if (!user.isEnabled()) {
+            throw new RuntimeException("Акаунтот не е верификуван! Провери го твојот email.");
+        }
+
+        // Провери лозинка
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new RuntimeException("Погрешна лозинка!");
+        }
+
+        // Ако 2FA е овозможена, генерирај и испрати код
+        if (user.isTwoFactorEnabled()) {
+            String twoFactorCode = verificationService.generateVerificationCode();
+            user.setTwoFactorCode(twoFactorCode);
+            user.setTwoFactorCodeExpiry(verificationService.generateExpiryTime(5)); // 5 минути
+            userRepository.save(user);
+
+            // Испрати 2FA код
+            emailService.sendTwoFactorCode(user.getEmail(), twoFactorCode);
         }
     }
 
+    /**
+     * ФАЗ 2 НАЈАВА: Верификација на 2FA кодот и креирање на сесија
+     */
+    public String completeTwoFactorLogin(String username, String twoFactorCode, HttpSession session) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Корисникот не постои!"));
+
+        // Провери дали 2FA кодот е истечен
+        if (verificationService.isCodeExpired(user.getTwoFactorCodeExpiry())) {
+            throw new RuntimeException("2FA кодот е истечен! Најави се повторно.");
+        }
+
+        // Провери дали кодот е точен
+        if (!twoFactorCode.equals(user.getTwoFactorCode())) {
+            throw new RuntimeException("Погрешен 2FA код!");
+        }
+
+        // Избриши го 2FA кодот
+        user.setTwoFactorCode(null);
+        user.setTwoFactorCodeExpiry(null);
+        userRepository.save(user);
+
+        // Креирај автентикација и сесија
+        return createSession(username, session);
+    }
+
+    /**
+     * Креирање на сесија (internal helper)
+     */
+    private String createSession(String username, HttpSession session) {
+        // Build a principal & authorities. For simple cases, empty authorities are fine
+        var authorities = List.<GrantedAuthority>of();
+        var principal = new org.springframework.security.core.userdetails.User(username, "", authorities);
+
+        // 3-arg constructor -> authenticated = true
+        var authToken = new UsernamePasswordAuthenticationToken(
+                principal, null, authorities
+        );
+
+        var securityContext = createEmptyContext();
+        securityContext.setAuthentication(authToken);
+        SecurityContextHolder.setContext(securityContext);
+
+        // Persist SecurityContext in session
+        session.setAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                securityContext
+        );
+
+        return session.getId();
+    }
     /**
      * Одјава - уништување на сесија
      */
@@ -102,12 +217,10 @@ public class AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Корисникот не постои!"));
 
-        // Провери стара лозинка
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             throw new RuntimeException("Старата лозинка е погрешна!");
         }
 
-        // Постави нова лозинка (хеширана)
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
@@ -148,7 +261,6 @@ public class AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Корисникот не постои!"));
 
-        // Провери дали email веќе постои
         if (userRepository.existsByEmail(newEmail)) {
             throw new RuntimeException("Email веќе е зафатен!");
         }
@@ -164,7 +276,6 @@ public class AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Корисникот не постои!"));
 
-        // Потврди ја лозинката
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("Погрешна лозинка!");
         }

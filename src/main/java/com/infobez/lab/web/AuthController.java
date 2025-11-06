@@ -25,7 +25,7 @@ public class AuthController {
 
     /**
      * POST /api/auth/register
-     * Регистрација на нов корисник
+     * ФАЗ 1 РЕГИСТРАЦИЈА: Регистрација на корисник (испраќа verification код)
      */
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
@@ -34,8 +34,10 @@ public class AuthController {
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Корисникот е успешно регистриран!");
+            response.put("message", "Верификациски код е испратен на твојот email!");
             response.put("username", user.getUsername());
+            response.put("email", user.getEmail());
+            response.put("nextStep", "verify-email");
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
@@ -49,34 +51,113 @@ public class AuthController {
     }
 
     /**
+     * POST /api/auth/verify-email
+     * ФАЗ 2 РЕГИСТРАЦИЈА: Верификација на email со код
+     */
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> request) {
+        try {
+            String username = request.get("username");
+            String code = request.get("code");
+
+            authService.verifyEmail(username, code);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Email е успешно верификуван! Сега можеш да се најавиш.");
+
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    /**
+     * POST /api/auth/resend-verification
+     * Повторно испраќање на верификациски код
+     */
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerification(@RequestBody Map<String, String> request) {
+        try {
+            String username = request.get("username");
+            authService.resendVerificationCode(username);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Нов верификациски код е испратен!");
+
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    /**
      * POST /api/auth/login
-     * Најава на корисник
-     * - Автентикација преку AuthenticationManager
-     * - Генерирање на session key
-     * - Испраќање на JSESSIONID cookie
+     * ФАЗ 1 НАЈАВА: Иницијална најава (username + password)
+     * Испраќа 2FA код на email
      */
     @PostMapping("/login")
-    public ResponseEntity<?> login(
-            @RequestBody Map<String, String> credentials,
-            HttpSession session,
-            HttpServletResponse response) {
+    public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
         try {
             String username = credentials.get("username");
             String password = credentials.get("password");
 
-            // Автентикација и креирање на сесија
-            String sessionId = authService.loginUser(username, password, session);
+            authService.initiateLogin(username, password);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "2FA код е испратен на твојот email!");
+            response.put("username", username);
+            response.put("nextStep", "verify-2fa");
+
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+    }
+
+    /**
+     * POST /api/auth/verify-2fa
+     * ФАЗ 2 НАЈАВА: Верификација на 2FA код и креирање на сесија
+     */
+    @PostMapping("/verify-2fa")
+    public ResponseEntity<?> verifyTwoFactor(
+            @RequestBody Map<String, String> request,
+            HttpSession session,
+            HttpServletResponse response) {
+        try {
+            String username = request.get("username");
+            String twoFactorCode = request.get("code");
+
+            // Комплетирај ја најавата со 2FA
+            String sessionId = authService.completeTwoFactorLogin(username, twoFactorCode, session);
 
             // Креирај HttpOnly cookie со session ID
             Cookie sessionCookie = new Cookie("JSESSIONID", sessionId);
-            sessionCookie.setHttpOnly(true);  // Заштита од XSS
-            sessionCookie.setSecure(true);   // Постави на true за HTTPS
+            sessionCookie.setHttpOnly(true);
+            sessionCookie.setSecure(false); // Постави на true за HTTPS
             sessionCookie.setPath("/");
             sessionCookie.setMaxAge(24 * 60 * 60); // 24 часа
 
             response.addCookie(sessionCookie);
 
-            // Земи ги податоците за корисникот
+            // Земи го корисникот
             User user = authService.getUserByUsername(username);
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -100,13 +181,10 @@ public class AuthController {
     /**
      * POST /api/auth/logout
      * Одјава на корисник
-     * - Уништување на сесија
-     * - Бришење на JSESSIONID cookie
      */
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpSession session, HttpServletResponse response) {
         try {
-            // Уништи ја сесијата
             authService.logoutUser(session);
 
             // Избриши го session cookie
@@ -114,7 +192,7 @@ public class AuthController {
             sessionCookie.setHttpOnly(true);
             sessionCookie.setSecure(false);
             sessionCookie.setPath("/");
-            sessionCookie.setMaxAge(0); // Избриши веднаш
+            sessionCookie.setMaxAge(0);
 
             response.addCookie(sessionCookie);
 
@@ -155,7 +233,7 @@ public class AuthController {
 
     /**
      * POST /api/auth/change-password
-     * Промена на лозинка (бара автентикација)
+     * Промена на лозинка
      */
     @PostMapping("/change-password")
     public ResponseEntity<?> changePassword(@RequestBody Map<String, String> request) {

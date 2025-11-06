@@ -230,7 +230,6 @@ public class UserProfileController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null ||
-                authentication instanceof AnonymousAuthenticationToken ||
                 !authentication.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Не сте најавени!");
         }
