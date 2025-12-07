@@ -1,0 +1,250 @@
+/* JitAccess.css */
+.jit-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.jit-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.jit-header h1 {
+    font-size: 2.5rem;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.jit-header p {
+    color: #6c757d;
+}
+
+/* Base sections */
+.jit-content {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+}
+
+.admin-section,
+.user-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.section-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-section .section-header {
+    background-color: #fff5f5;
+    /* Light red bg for admin */
+    border-bottom-color: #fed7d7;
+}
+
+.user-section .section-header {}
+
+/* Request Form */
+.request-form-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.request-form-container form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #4a5568;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.request-btn {
+    background-color: #4299e1;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    align-self: flex-start;
+}
+
+.request-btn:hover {
+    background-color: #3182ce;
+}
+
+/* Access List Grid */
+.access-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.access-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.access-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.access-card.pending {
+    border-left: 4px solid #ecc94b;
+}
+
+.access-card.active {
+    border-left: 4px solid #48bb78;
+}
+
+.access-card.rejected {
+    border-left: 4px solid #f56565;
+}
+
+.access-card.expired {
+    border-left: 4px solid #a0aec0;
+    border-style: dashed;
+}
+
+.access-card.revoked {
+    border-left: 4px solid #718096;
+    opacity: 0.7;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #2d3748;
+}
+
+.card-body p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.card-body strong {
+    color: #2d3748;
+}
+
+.card-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 1rem;
+}
+
+/* Status Badges */
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.pending {
+    background-color: #fefcbf;
+    color: #b7791f;
+}
+
+.status-badge.active {
+    background-color: #c6f6d5;
+    color: #2f855a;
+}
+
+.status-badge.rejected {
+    background-color: #fed7d7;
+    color: #c53030;
+}
+
+.status-badge.expired {
+    background-color: #edf2f7;
+    color: #4a5568;
+}
+
+.status-badge.revoked {
+    background-color: #e2e8f0;
+    color: #4a5568;
+}
+
+/* Admin Buttons */
+.approve-btn {
+    background-color: #48bb78;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: 1;
+}
+
+.reject-btn {
+    background-color: #f56565;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: 1;
+}
+
+.revoke-btn {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background-color: white;
+    border: 1px solid #e53e3e;
+    color: #e53e3e;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.revoke-btn:hover {
+    background-color: #fff5f5;
+}
+
+.empty-state {
+    text-align: center;
+    color: #a0aec0;
+    padding: 2rem;
+    font-style: italic;
+}
