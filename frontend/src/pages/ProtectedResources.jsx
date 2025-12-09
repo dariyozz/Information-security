@@ -1,148 +1,79 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { resourceAPI } from '../services/api';
-import './Resources.css';
+import {useAuth} from "../context/AuthContext.jsx";
+import api from "../services/api.js";
+import styles from "../styles.js";
+import {Layout} from "../components/Layout.jsx";
 
 export default function ProtectedResources() {
-    const navigate = useNavigate();
+    const { isAdmin, isManager } = useAuth();
     const [results, setResults] = useState({});
     const [loading, setLoading] = useState({});
 
-    const testResource = async (resourceName, apiCall) => {
-        setLoading({ ...loading, [resourceName]: true });
+    const testResource = async (name, apiFn) => {
+        setLoading(prev => ({ ...prev, [name]: true }));
         try {
-            const response = await apiCall();
-            setResults({
-                ...results,
-                [resourceName]: {
-                    success: true,
-                    message: response.data.message,
-                    data: response.data.data,
-                },
-            });
+            const response = await apiFn();
+            setResults(prev => ({ ...prev, [name]: { success: response.success, ...response } }));
         } catch (error) {
-            setResults({
-                ...results,
-                [resourceName]: {
-                    success: false,
-                    message: error.response?.data?.message || 'Access denied',
-                    status: error.response?.status,
-                },
-            });
+            setResults(prev => ({ ...prev, [name]: { success: false, message: error.message } }));
         } finally {
-            setLoading({ ...loading, [resourceName]: false });
+            setLoading(prev => ({ ...prev, [name]: false }));
         }
     };
 
-    const testDocument = async () => {
-        const documentId = 'doc-123';
-        await testResource('document', () => resourceAPI.getDocument(documentId));
-    };
+    const resources = [
+        { id: 'admin', name: 'Admin Resource', icon: '🔱', api: api.resources.getAdmin, required: 'ADMIN role' },
+        { id: 'manager', name: 'Manager Resource', icon: '⚡', api: api.resources.getManager, required: 'MANAGER role or higher' },
+        { id: 'user', name: 'User Resource', icon: '👤', api: api.resources.getUser, required: 'USER role' },
+        { id: 'document', name: 'Document (doc-123)', icon: '📄', api: () => api.resources.getDocument('doc-123'), required: 'READ permission or JIT access' },
+    ];
 
     return (
-        <div className="resources-container">
-            <div className="resources-header">
-                <button onClick={() => navigate('/dashboard')} className="back-btn">
-                    ← Back to Dashboard
-                </button>
-                <h1>Protected Resources Test</h1>
-            </div>
+        <Layout>
+            <div>
+                <h1 style={{ fontSize: '32px', color: '#1e293b', marginBottom: '32px' }}>
+                    🔒 Protected Resources
+                </h1>
 
-            <div className="resources-content">
-                <div className="test-section">
-                    <h2>Organizational Role Tests</h2>
-                    <p className="section-description">
-                        Test access based on organizational role hierarchy (ADMIN &gt; MANAGER &gt; USER)
-                    </p>
-
-                    <div className="test-card">
-                        <h3>Admin Resource</h3>
-                        <p>Requires: ADMIN role</p>
-                        <button
-                            onClick={() => testResource('admin', resourceAPI.getAdminResource)}
-                            disabled={loading.admin}
-                        >
-                            {loading.admin ? 'Testing...' : 'Test Admin Access'}
-                        </button>
-                        {results.admin && (
-                            <div className={`result ${results.admin.success ? 'success' : 'error'}`}>
-                                <p><strong>Status:</strong> {results.admin.success ? 'Success' : `Failed (${results.admin.status})`}</p>
-                                <p><strong>Message:</strong> {results.admin.message}</p>
-                                {results.admin.data && (
-                                    <pre>{JSON.stringify(results.admin.data, null, 2)}</pre>
-                                )}
+                <div style={{ display: 'grid', gap: '20px' }}>
+                    {resources.map(resource => (
+                        <div key={resource.id} style={styles.card}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                <div style={{ fontSize: '40px' }}>{resource.icon}</div>
+                                <div style={{ flex: 1 }}>
+                                    <h3 style={{ margin: 0, fontSize: '18px', color: '#1e293b' }}>{resource.name}</h3>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b' }}>
+                                        Requires: {resource.required}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => testResource(resource.id, resource.api)}
+                                    disabled={loading[resource.id]}
+                                    style={{ ...styles.btn, ...styles.btnPrimary }}
+                                >
+                                    {loading[resource.id] ? '⏳ Testing...' : '🧪 Test Access'}
+                                </button>
                             </div>
-                        )}
-                    </div>
 
-                    <div className="test-card">
-                        <h3>Manager Resource</h3>
-                        <p>Requires: MANAGER role or higher</p>
-                        <button
-                            onClick={() => testResource('manager', resourceAPI.getManagerResource)}
-                            disabled={loading.manager}
-                        >
-                            {loading.manager ? 'Testing...' : 'Test Manager Access'}
-                        </button>
-                        {results.manager && (
-                            <div className={`result ${results.manager.success ? 'success' : 'error'}`}>
-                                <p><strong>Status:</strong> {results.manager.success ? 'Success' : `Failed (${results.manager.status})`}</p>
-                                <p><strong>Message:</strong> {results.manager.message}</p>
-                                {results.manager.data && (
-                                    <pre>{JSON.stringify(results.manager.data, null, 2)}</pre>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="test-card">
-                        <h3>User Resource</h3>
-                        <p>Requires: USER role or higher</p>
-                        <button
-                            onClick={() => testResource('user', resourceAPI.getUserResource)}
-                            disabled={loading.user}
-                        >
-                            {loading.user ? 'Testing...' : 'Test User Access'}
-                        </button>
-                        {results.user && (
-                            <div className={`result ${results.user.success ? 'success' : 'error'}`}>
-                                <p><strong>Status:</strong> {results.user.success ? 'Success' : `Failed (${results.user.status})`}</p>
-                                <p><strong>Message:</strong> {results.user.message}</p>
-                                {results.user.data && (
-                                    <pre>{JSON.stringify(results.user.data, null, 2)}</pre>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="test-section">
-                    <h2>Resource-Specific Access Test</h2>
-                    <p className="section-description">
-                        Test access to specific documents (requires READ_DOCUMENTS permission or JIT access)
-                    </p>
-
-                    <div className="test-card">
-                        <h3>Document Access</h3>
-                        <p>Requires: DOCUMENT READ permission or temporary JIT access</p>
-                        <button
-                            onClick={testDocument}
-                            disabled={loading.document}
-                        >
-                            {loading.document ? 'Testing...' : 'Test Document Access'}
-                        </button>
-                        {results.document && (
-                            <div className={`result ${results.document.success ? 'success' : 'error'}`}>
-                                <p><strong>Status:</strong> {results.document.success ? 'Success' : `Failed (${results.document.status})`}</p>
-                                <p><strong>Message:</strong> {results.document.message}</p>
-                                {results.document.data && (
-                                    <pre>{JSON.stringify(results.document.data, null, 2)}</pre>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                            {results[resource.id] && (
+                                <div style={{
+                                    padding: '16px',
+                                    borderRadius: '8px',
+                                    background: results[resource.id].success ? '#d1fae5' : '#fee2e2',
+                                    border: `2px solid ${results[resource.id].success ? '#10b981' : '#ef4444'}`,
+                                }}>
+                                    <div style={{ fontWeight: '600', marginBottom: '8px', color: results[resource.id].success ? '#065f46' : '#991b1b' }}>
+                                        {results[resource.id].success ? '✅ Access Granted' : '❌ Access Denied'}
+                                    </div>
+                                    <div style={{ fontSize: '14px', color: results[resource.id].success ? '#065f46' : '#991b1b' }}>
+                                        {results[resource.id].message}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
                 </div>
             </div>
-        </div>
+        </Layout>
     );
 }

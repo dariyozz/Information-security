@@ -54,7 +54,7 @@ public class TemporaryAccess {
     }
 
     public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expiresAt);
+        return expiresAt != null && LocalDateTime.now().isAfter(expiresAt);
     }
 
     public boolean isActive() {

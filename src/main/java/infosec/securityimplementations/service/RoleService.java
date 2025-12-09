@@ -4,15 +4,16 @@ import infosec.securityimplementations.entity.Role;
 import infosec.securityimplementations.entity.UserRole;
 import infosec.securityimplementations.repository.RoleRepository;
 import infosec.securityimplementations.repository.UserRoleRepository;
+import infosec.securityimplementations.repository.RolePermissionRepository;
+import infosec.securityimplementations.repository.PermissionRepository;
+import infosec.securityimplementations.entity.Permission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +22,8 @@ public class RoleService {
 
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final RolePermissionRepository rolePermissionRepository;
+    private final PermissionRepository permissionRepository;
     private final AuthorizationService authorizationService;
 
     /**
@@ -109,8 +112,24 @@ public class RoleService {
 
         List<Role> roles = authorizationService.getUserRoles(userId);
 
+        List<Map<String, Object>> rolesWithPermissions = roles.stream().map(role -> {
+            Map<String, Object> roleMap = new HashMap<>();
+            roleMap.put("id", role.getId());
+            roleMap.put("name", role.getName());
+            roleMap.put("description", role.getDescription());
+            roleMap.put("roleType", role.getRoleType());
+
+            List<Long> permissionIds = rolePermissionRepository.findPermissionIdsByRoleId(role.getId());
+            List<String> permissionNames = permissionRepository.findAllById(permissionIds).stream()
+                    .map(Permission::getName)
+                    .collect(Collectors.toList());
+
+            roleMap.put("permissions", permissionNames);
+            return roleMap;
+        }).collect(Collectors.toList());
+
         result.put("success", true);
-        result.put("roles", roles);
+        result.put("roles", rolesWithPermissions);
 
         return result;
     }
@@ -123,8 +142,24 @@ public class RoleService {
 
         List<Role> roles = roleRepository.findAll();
 
+        List<Map<String, Object>> rolesWithPermissions = roles.stream().map(role -> {
+            Map<String, Object> roleMap = new HashMap<>();
+            roleMap.put("id", role.getId());
+            roleMap.put("name", role.getName());
+            roleMap.put("description", role.getDescription());
+            roleMap.put("roleType", role.getRoleType());
+
+            List<Long> permissionIds = rolePermissionRepository.findPermissionIdsByRoleId(role.getId());
+            List<String> permissionNames = permissionRepository.findAllById(permissionIds).stream()
+                    .map(Permission::getName)
+                    .collect(Collectors.toList());
+
+            roleMap.put("permissions", permissionNames);
+            return roleMap;
+        }).collect(Collectors.toList());
+
         result.put("success", true);
-        result.put("roles", roles);
+        result.put("roles", rolesWithPermissions);
 
         return result;
     }

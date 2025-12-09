@@ -112,6 +112,13 @@ public class AuthenticationService {
         user.setEmailVerified(true);
         userRepository.save(user);
         log.info("Email verified for user: {}", user.getUsername());
+        // add user role of 'USER' upon email verification
+        Role userRole = roleRepository.findByName("USER")
+                .orElseThrow(() -> new RuntimeException("Default USER role not found"));
+        UserRole userUserRole = new UserRole();
+        userUserRole.setUserId(user.getId());
+        userUserRole.setRoleId(userRole.getId());
+        userRoleRepository.save(userUserRole);
 
         result.put("success", true);
         result.put("message", "Email verified successfully. You can now log in.");
@@ -184,6 +191,13 @@ public class AuthenticationService {
             return result;
         }
 
+        // Check if user is blocked
+        if (user.getBlocked() != null && user.getBlocked()) {
+            result.put("success", false);
+            result.put("message", "Your account has been blocked. Please contact administrator.");
+            return result;
+        }
+
         // Send 2FA code
         verificationService.send2FACode(user.getId(), user.getEmail());
         log.info("2FA code sent to user: {}", user.getUsername());
@@ -210,6 +224,13 @@ public class AuthenticationService {
         }
 
         User user = optionalUser.get();
+
+        // Check if user is blocked
+        if (user.getBlocked() != null && user.getBlocked()) {
+            result.put("success", false);
+            result.put("message", "Your account has been blocked.");
+            return result;
+        }
 
         // Validate 2FA code
         boolean isValid = verificationService.validateCode(

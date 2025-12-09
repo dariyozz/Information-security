@@ -16,6 +16,8 @@ public interface TemporaryAccessRepository extends JpaRepository<TemporaryAccess
 
     Optional<TemporaryAccess> findByUserIdAndResourceIdAndRevokedFalse(Long userId, String resourceId);
 
+    List<TemporaryAccess> findByStatus(infosec.securityimplementations.entity.AccessStatus status);
+
     @Query("SELECT ta FROM TemporaryAccess ta WHERE ta.expiresAt < :now AND ta.revoked = false")
     List<TemporaryAccess> findExpiredAccess(LocalDateTime now);
 }

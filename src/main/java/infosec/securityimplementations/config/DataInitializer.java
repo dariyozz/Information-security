@@ -186,7 +186,8 @@ public class DataInitializer implements CommandLineRunner {
         // USER gets document read permission
         Role userRole = roleRepository.findByName("USER").orElse(null);
         if (userRole != null) {
-            assignPermissionToRole(userRole, "READ_DOCUMENTS");
+            // Permissions removed to enforce JIT access testing
+            // assignPermissionToRole(userRole, "READ_DOCUMENTS");
         }
 
         // DOCUMENT_VIEWER gets read permission

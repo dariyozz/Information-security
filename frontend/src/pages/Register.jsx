@@ -1,145 +1,150 @@
 import { useState } from 'react';
-import { authAPI } from '../services/api';
-import { useNavigate } from 'react-router-dom';
-import './Auth.css';
+import api from '../services/api';
+import {Link, useNavigate} from 'react-router-dom';
+import styles from "../styles.js";
 
-export default function Register() {
+export default function RegisterPage() {
     const navigate = useNavigate();
-    const [step, setStep] = useState(1); // 1: registration, 2: email verification
-    const [formData, setFormData] = useState({
-        username: '',
-        email: '',
-        password: '',
-    });
-    const [verificationCode, setVerificationCode] = useState('');
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
+    const [step, setStep] = useState(1);
+    const [formData, setFormData] = useState({ username: '', email: '', password: '' });
+    const [code, setCode] = useState('');
+    const [message, setMessage] = useState(null);
     const [loading, setLoading] = useState(false);
-
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
 
     const handleRegister = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
-        setMessage('');
+        setMessage(null);
 
         try {
-            const response = await authAPI.register(formData);
-            if (response.data.success) {
-                setMessage(response.data.message);
+            const response = await api.auth.register(formData);
+            if (response.success) {
+                setMessage({ type: 'success', text: response.message });
                 setStep(2);
+            } else {
+                setMessage({ type: 'error', text: response.message });
             }
-        } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed');
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Registration failed' });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleVerifyEmail = async (e) => {
+    const handleVerify = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
-        setMessage('');
+        setMessage(null);
 
         try {
-            const response = await authAPI.verifyEmail({
-                email: formData.email,
-                code: verificationCode,
-            });
-            if (response.data.success) {
-                setMessage(response.data.message);
+            const response = await api.auth.verifyEmail({ email: formData.email, code });
+            if (response.success) {
+                setMessage({ type: 'success', text: 'Email verified! Redirecting...' });
                 setTimeout(() => navigate('/login'), 2000);
+            } else {
+                setMessage({ type: 'error', text: response.message });
             }
-        } catch (err) {
-            setError(err.response?.data?.message || 'Verification failed');
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Verification failed' });
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="auth-container">
-            <div className="auth-card">
-                <h1>Register</h1>
+        <div style={{ ...styles.container, ...styles.authContainer }}>
+            <div style={styles.authCard}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>✨</div>
+                    <h1 style={{ margin: 0, fontSize: '28px', color: '#1e293b' }}>
+                        {step === 1 ? 'Create Account' : 'Verify Email'}
+                    </h1>
+                    <p style={{ color: '#64748b', marginTop: '8px' }}>
+                        {step === 1 ? 'Sign up for a new account' : 'Check your email for verification code'}
+                    </p>
+                </div>
+
+                {message && (
+                    <div style={{
+                        padding: '12px',
+                        borderRadius: '8px',
+                        marginBottom: '20px',
+                        background: message.type === 'error' ? '#fee2e2' : '#d1fae5',
+                        color: message.type === 'error' ? '#991b1b' : '#065f46',
+                    }}>
+                        {message.text}
+                    </div>
+                )}
 
                 {step === 1 ? (
                     <form onSubmit={handleRegister}>
-                        <div className="form-group">
-                            <label>Username</label>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Username</label>
                             <input
                                 type="text"
-                                name="username"
                                 value={formData.username}
-                                onChange={handleChange}
-                                required
+                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                style={styles.input}
                                 minLength={3}
+                                required
                             />
                         </div>
-
-                        <div className="form-group">
-                            <label>Email</label>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Email</label>
                             <input
                                 type="email"
-                                name="email"
                                 value={formData.email}
-                                onChange={handleChange}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                style={styles.input}
                                 required
                             />
                         </div>
-
-                        <div className="form-group">
-                            <label>Password</label>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Password</label>
                             <input
                                 type="password"
-                                name="password"
                                 value={formData.password}
-                                onChange={handleChange}
-                                required
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                style={styles.input}
                                 minLength={6}
+                                required
                             />
                         </div>
-
-                        {error && <div className="error-message">{error}</div>}
-                        {message && <div className="success-message">{message}</div>}
-
-                        <button type="submit" disabled={loading}>
-                            {loading ? 'Registering...' : 'Register'}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{ ...styles.btn, ...styles.btnPrimary, width: '100%', justifyContent: 'center' }}
+                        >
+                            {loading ? 'Creating Account...' : 'Create Account'}
                         </button>
-
-                        <p className="auth-link">
-                            Already have an account? <a href="/login">Login</a>
-                        </p>
                     </form>
                 ) : (
-                    <form onSubmit={handleVerifyEmail}>
-                        <div className="info-box">
-                            <p>A verification code has been sent to your email (check console logs).</p>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Verification Code</label>
+                    <form onSubmit={handleVerify}>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Verification Code</label>
                             <input
                                 type="text"
-                                value={verificationCode}
-                                onChange={(e) => setVerificationCode(e.target.value)}
-                                required
+                                value={code}
+                                onChange={(e) => setCode(e.target.value)}
+                                style={styles.input}
                                 maxLength={6}
                                 placeholder="Enter 6-digit code"
+                                required
                             />
                         </div>
-
-                        {error && <div className="error-message">{error}</div>}
-                        {message && <div className="success-message">{message}</div>}
-
-                        <button type="submit" disabled={loading}>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{ ...styles.btn, ...styles.btnPrimary, width: '100%', justifyContent: 'center' }}
+                        >
                             {loading ? 'Verifying...' : 'Verify Email'}
                         </button>
                     </form>
                 )}
+
+                <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '14px', color: '#64748b' }}>
+                    Already have an account? <Link to="/login" style={{ color: '#667eea', fontWeight: '600' }}>Sign in</Link>
+                </div>
             </div>
         </div>
     );

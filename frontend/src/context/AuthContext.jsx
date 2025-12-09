@@ -1,17 +1,9 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import api from "../services/api.js";
 
-const AuthContext = createContext(null);
+const AuthContext = React.createContext(null);
 
-export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within AuthProvider');
-    }
-    return context;
-};
-
-export const AuthProvider = ({ children }) => {
+export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -21,10 +13,9 @@ export const AuthProvider = ({ children }) => {
 
     const checkAuth = async () => {
         try {
-            const response = await authAPI.getCurrentUser();
-            if (response.data.success) {
-                // The user object is nested in the data property of the response
-                setUser(response.data.data.user);
+            const response = await api.auth.getCurrentUser();
+            if (response.success) {
+                setUser(response.data.user);
             }
         } catch (error) {
             setUser(null);
@@ -33,27 +24,26 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const login = async (sessionData) => {
-        setUser(sessionData.user);
-    };
-
+    const login = (userData) => setUser(userData);
     const logout = async () => {
-        try {
-            await authAPI.logout();
-        } catch (error) {
-            console.error('Logout error:', error);
-        } finally {
-            setUser(null);
-        }
+        await api.auth.logout();
+        setUser(null);
     };
 
-    const value = {
-        user,
-        loading,
-        login,
-        logout,
-        checkAuth,
-    };
+    const hasRole = (roleName) => user?.roles?.some(r => r.name === roleName) || false;
+    const isAdmin = hasRole('ADMIN');
+    const isManager = hasRole('MANAGER');
+    const isUser = hasRole('USER');
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    return (
+        <AuthContext.Provider value={{ user, loading, login, logout, checkAuth, hasRole, isAdmin, isManager, isUser }}>
+            {children}
+        </AuthContext.Provider>
+    );
+}
+
+ export const useAuth = () => {
+    const context = React.useContext(AuthContext);
+    if (!context) throw new Error('useAuth must be used within AuthProvider');
+    return context;
 };

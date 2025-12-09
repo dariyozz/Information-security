@@ -270,9 +270,8 @@ public class JitAccessService {
             return result;
         }
 
-        List<TemporaryAccess> pendingRequests = temporaryAccessRepository.findAll().stream()
-                .filter(access -> access.getStatus() == infosec.securityimplementations.entity.AccessStatus.PENDING)
-                .toList();
+        List<TemporaryAccess> pendingRequests = temporaryAccessRepository
+                .findByStatus(infosec.securityimplementations.entity.AccessStatus.PENDING);
 
         result.put("success", true);
         result.put("requests", pendingRequests);
