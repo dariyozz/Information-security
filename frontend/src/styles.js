@@ -39,11 +39,10 @@ const styles = {
         padding: '4px 12px',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         borderRadius: '12px',
-        fontSize: '15px',
+        fontSize: '11px',
         fontWeight: '600',
         textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        color: '#fff',
+        letterSpacing: '0.5px'
     },
     nav: {
         flex: 1,
@@ -211,7 +210,7 @@ const styles = {
         borderBottom: '1px solid #f1f5f9',
         fontSize: '14px',
         color: '#334155',
-        fontWeight: '500',
+        fontWeight : '500',
     },
     authContainer: {
         minHeight: '100vh',

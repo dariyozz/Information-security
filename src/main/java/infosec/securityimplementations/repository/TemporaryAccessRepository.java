@@ -1,5 +1,6 @@
 package infosec.securityimplementations.repository;
 
+import infosec.securityimplementations.entity.AccessStatus;
 import infosec.securityimplementations.entity.TemporaryAccess;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,7 +17,7 @@ public interface TemporaryAccessRepository extends JpaRepository<TemporaryAccess
 
     Optional<TemporaryAccess> findByUserIdAndResourceIdAndRevokedFalse(Long userId, String resourceId);
 
-    List<TemporaryAccess> findByStatus(infosec.securityimplementations.entity.AccessStatus status);
+    List<TemporaryAccess> findByStatus(AccessStatus status);
 
     @Query("SELECT ta FROM TemporaryAccess ta WHERE ta.expiresAt < :now AND ta.revoked = false")
     List<TemporaryAccess> findExpiredAccess(LocalDateTime now);
